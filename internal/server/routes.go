@@ -11,6 +11,7 @@ func (s *Server) RegisterRoutes() http.Handler {
 	r.GET("/", s.HelloWorldHandler)
 	r.GET("/movies", s.movieHandler)
 	r.GET("/profile", s.profileHandler)
+	r.GET("login", s.loginHandler)
 
 	return r
 }
@@ -28,4 +29,8 @@ func (s *Server) movieHandler(c *gin.Context) {
 
 func (s *Server) profileHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, s.db.Profile())
+}
+
+func (s *Server) loginHandler(c *gin.Context) {
+	c.JSON(http.StatusOK, s.db.Login())
 }
