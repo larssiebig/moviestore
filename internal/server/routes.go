@@ -11,7 +11,6 @@ func (s *Server) RegisterRoutes() http.Handler {
 	r.GET("/", s.HelloWorldHandler)
 	r.GET("/movies", s.movieHandler)
 	r.GET("/profile", s.profileHandler)
-	r.GET("login", s.loginHandler)
 
 	return r
 }
