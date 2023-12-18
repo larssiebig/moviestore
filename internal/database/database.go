@@ -15,6 +15,7 @@ import (
 type Service interface {
 	Movie() map[string]string
 	Profile() map[string]string
+	Login() map[string]string
 }
 
 type service struct {
@@ -64,5 +65,19 @@ func (s *service) Profile() map[string]string {
 
 	return map[string]string{
 		"message": "Thats your profile",
+	}
+}
+
+func (s *service) Login() map[string]string {
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+	defer cancel()
+
+	err := s.db.PingContext(ctx)
+	if err != nil {
+		log.Fatalf(fmt.Sprintf("db down: %v", err))
+	}
+
+	return map[string]string{
+		"message": "Login",
 	}
 }
