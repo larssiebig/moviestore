@@ -12,6 +12,8 @@ func (s *Server) RegisterRoutes() http.Handler {
 	r.GET("/movies", s.movieHandler)
 	r.GET("/profile", s.profileHandler)
 
+	r.POST("/movies", s.addMovieHandler)
+
 	return r
 }
 
@@ -23,9 +25,14 @@ func (s *Server) HelloWorldHandler(c *gin.Context) {
 }
 
 func (s *Server) movieHandler(c *gin.Context) {
-	c.JSON(http.StatusOK, s.db.Movie())
+	c.JSON(http.StatusOK, s.db.GetMovie())
 }
 
 func (s *Server) profileHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, s.db.Profile())
+}
+
+// function to post movies
+func (s *Server) addMovieHandler(c *gin.Context) {
+	c.JSON(http.StatusOK, s.db.AddMovie(c))
 }
