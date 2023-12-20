@@ -3,9 +3,9 @@ package database
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"time"
 
@@ -20,13 +20,18 @@ type Service interface {
 	AddMovie(ctx *gin.Context) map[string]string
 }
 
+type service struct {
+	db *sql.DB
+}
+
 type Movie struct {
+	ID    int    `json:"id,omitempty"`
 	Title string `json:"title"`
 	Year  string `json:"year"`
 }
 
-type service struct {
-	db *sql.DB
+func newMovie(id int, title, year string) Movie {
+	return Movie{id, title, year}
 }
 
 var (
@@ -37,7 +42,7 @@ var (
 	host     = os.Getenv("DB_HOST")
 )
 
-func New() Service {
+func ConnectDB() Service {
 	connStr := fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=disable", username, password, host, port, database)
 	db, err := sql.Open("pgx", connStr)
 	if err != nil {
@@ -76,42 +81,42 @@ func (s *service) Profile() map[string]string {
 }
 
 func (s *service) AddMovie(c *gin.Context) map[string]string {
-	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
-	defer cancel()
-
-	err := s.db.PingContext(ctx)
-	if err != nil {
-		log.Fatalf(fmt.Sprintf("db down: %v", err))
+	var newMovie Movie
+	if err := c.BindJSON(&newMovie); err != nil {
+		log.Fatalf(fmt.Sprintf("invalid JSON: %v", err))
+		makeGinResponse(c, http.StatusNotFound, "invalid JSON")
 	}
 
-	body := Movie{}
-	data, err := c.GetRawData()
+	sql := `INSERT INTO movies (title, year) VALUES ($1, $2)`
+	result, err := s.db.Exec(sql, newMovie.Title, newMovie.Year)
 	if err != nil {
-		log.Fatalf(fmt.Sprintf("Movie not defined: %v", err))
+		log.Fatalf(fmt.Sprintf("unable to execute the query: %v", err))
+		makeGinResponse(c, http.StatusInternalServerError, "unable to execute the query")
 	}
 
-	err = json.Unmarshal(data, &body)
+	n, err := result.RowsAffected()
 	if err != nil {
-		log.Fatalf(fmt.Sprintf("Bad Input: %v", err))
-
+		log.Fatalf(fmt.Sprintf("unable to get affected rows: %v", err))
+		makeGinResponse(c, http.StatusInternalServerError, "unable to get affected rows")
 	}
 
-	_, err = s.db.Exec(`CREATE TABLE IF NOT EXISTS movies (
-		id SERIAL PRIMARY KEY,
-		title VARCHAR(255),
-		year VARCHAR(255)
-	)`)
-
-	if err != nil {
-		log.Fatalf(fmt.Sprintf("Couldnt create table Movie: %v", err))
+	if n == 0 {
+		err := "could not insert movie"
+		log.Fatalf(fmt.Sprintf("could not insert movie: %v", err))
+		makeGinResponse(c, http.StatusInternalServerError, err)
 	}
 
-	_, err = s.db.Exec(`INSERT INTO movies (title, year) VALUES ($1, $2)`, body.Title, body.Year)
-	if err != nil {
-		log.Fatalf(fmt.Sprintf("Couldnt insert movie: %v", err))
-	}
+	m := "Movie added"
+	makeGinResponse(c, http.StatusOK, m)
 
 	return map[string]string{
-		"message": "Movie added",
+		"message": m,
 	}
+}
+
+func makeGinResponse(c *gin.Context, statusCode int, value string) {
+	c.JSON(statusCode, gin.H{
+		"message":    value,
+		"statusCode": statusCode,
+	})
 }
